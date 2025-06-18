@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chatbot de Psicologia</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #f0f4f8; /* Fundo suave */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .chat-container {
+        width: 100%;
+        max-width: 500px;
+        background-color: #ffffff;
+        border-radius: 1.25rem; /* rounded-xl */
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+          0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 80vh; /* Altura responsiva */
+        min-height: 400px;
+      }
+      .chat-messages {
+        flex-grow: 1;
+        padding: 1.5rem; /* p-6 */
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem; /* space-y-3 */
+        background-color: #fbfdff; /* tom mais claro para mensagens */
+      }
+      .message-bubble {
+        max-width: 80%;
+        padding: 0.75rem 1rem; /* py-3 px-4 */
+        border-radius: 1.25rem; /* rounded-xl */
+        word-wrap: break-word;
+      }
+      .message-bubble.user {
+        background-color: #d1e7dd; /* tom de verde suave */
+        align-self: flex-end;
+        border-bottom-right-radius: 0.5rem; /* rounded-br-lg */
+      }
+      .message-bubble.bot {
+        background-color: #e3f2fd; /* tom de azul suave */
+        align-self: flex-start;
+        border-bottom-left-radius: 0.5rem; /* rounded-bl-lg */
+      }
+      .chat-input-area {
+        display: flex;
+        padding: 1rem; /* p-4 */
+        border-top: 1px solid #e2e8f0; /* border-t border-gray-200 */
+        background-color: #ffffff;
+      }
+      .chat-input-area input {
+        flex-grow: 1;
+        padding: 0.75rem 1rem;
+        border-radius: 1.25rem;
+        border: 1px solid #cbd5e0; /* border-gray-300 */
+        outline: none;
+        font-size: 1rem;
+        margin-right: 0.75rem;
+      }
+      .chat-input-area button {
+        padding: 0.75rem 1.25rem;
+        background-color: #4f46e5; /* indigo-600 */
+        color: white;
+        border-radius: 1.25rem;
+        cursor: pointer;
+        transition: background-color 0.2s ease-in-out;
+        border: none;
+        font-weight: 600; /* semibold */
+      }
+      .chat-input-area button:hover {
+        background-color: #4338ca; /* indigo-700 */
+      }
+      .quick-replies {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      .quick-replies button {
+        padding: 0.5rem 1rem;
+        background-color: #e0f2fe; /* light blue */
+        color: #0c4a6e; /* dark blue text */
+        border: 1px solid #bae6fd; /* border-sky-200 */
+        border-radius: 9999px; /* rounded-full */
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        font-size: 0.875rem; /* text-sm */
+        font-weight: 500; /* medium */
+      }
+      .quick-replies button:hover {
+        background-color: #bfdbfe; /* blue-200 */
+        border-color: #93c5fd; /* blue-300 */
+      }
+      .loading-indicator {
+        align-self: flex-start;
+        padding: 0.75rem 1rem;
+        border-radius: 1.25rem;
+        background-color: #e0f2fe;
+        color: #0c4a6e;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <div
+        class="p-4 bg-indigo-600 text-white text-center text-lg font-semibold rounded-t-xl"
+      >
+        Assistente Virtual Conexão Mente e Curai
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <!-- As mensagens serão inseridas aqui -->
+      </div>
+      <div class="chat-input-area">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="Digite sua mensagem..."
+        />
+        <button id="sendButton">Enviar</button>
+      </div>
+    </div>
+
+    <script>
+      const chatMessages = document.getElementById("chatMessages");
+      const userInput = document.getElementById("userInput");
+      const sendButton = document.getElementById("sendButton");
+      const backendUrl = "http://localhost:3000/chat"; // URL do seu backend Node.js
+
+      // Função para exibir mensagens na interface do chat
+      function displayMessage(text, sender, quickReplies = []) {
+        const messageWrapper = document.createElement("div");
+        messageWrapper.classList.add(
+          "flex",
+          sender === "user" ? "justify-end" : "justify-start"
+        );
+
+        const messageBubble = document.createElement("div");
+        messageBubble.classList.add("message-bubble", sender);
+        messageBubble.innerText = text;
+
+        messageWrapper.appendChild(messageBubble);
+        chatMessages.appendChild(messageWrapper);
+
+        // Adicionar botões de quick reply se existirem e for uma mensagem do bot
+        if (sender === "bot" && quickReplies.length > 0) {
+          const qrContainer = document.createElement("div");
+          qrContainer.classList.add("quick-replies");
+          quickReplies.forEach((reply) => {
+            const button = document.createElement("button");
+            button.innerText = reply;
+            button.onclick = () => {
+              userInput.value = reply; // Preenche o input com a resposta rápida
+              sendMessage(); // Envia a mensagem automaticamente
+            };
+            qrContainer.appendChild(button);
+          });
+          chatMessages.appendChild(qrContainer);
+        }
+
+        chatMessages.scrollTop = chatMessages.scrollHeight; // Rolar para a última mensagem
+      }
+
+      // Função para mostrar um indicador de carregamento
+      function showLoadingIndicator() {
+        const loadingDiv = document.createElement("div");
+        loadingDiv.id = "loadingIndicator";
+        loadingDiv.classList.add("loading-indicator");
+        loadingDiv.innerText = "Digitando...";
+        chatMessages.appendChild(loadingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      // Função para remover o indicador de carregamento
+      function removeLoadingIndicator() {
+        const loadingDiv = document.getElementById("loadingIndicator");
+        if (loadingDiv) {
+          loadingDiv.remove();
+        }
+      }
+
+      // Função para enviar a mensagem
+      async function sendMessage() {
+        const message = userInput.value.trim();
+        if (!message) return;
+
+        displayMessage(message, "user");
+        userInput.value = ""; // Limpa o input
+
+        showLoadingIndicator(); // Mostra o indicador de carregamento
+
+        try {
+          const response = await fetch(backendUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ message: message }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Erro HTTP! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          removeLoadingIndicator(); // Remove o indicador após receber a resposta
+
+          // Processar a resposta do bot e exibir
+          const botResponseText = data.text;
+          const quickReplies = data.quickReplies || [];
+
+          displayMessage(botResponseText, "bot", quickReplies);
+        } catch (error) {
+          console.error("Erro ao enviar mensagem para o backend:", error);
+          removeLoadingIndicator(); // Remover indicador mesmo em caso de erro
+          displayMessage(
+            "Desculpe, tive um problema para me conectar. Por favor, tente novamente mais tarde.",
+            "bot"
+          );
+        }
+      }
+
+      // Event Listeners
+      sendButton.addEventListener("click", sendMessage);
+      userInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          sendMessage();
+        }
+      });
+
+      // Mensagem inicial do bot
+      window.onload = () => {
+        displayMessage(
+          "Olá! Eu sou o assistente virtual da Conexão Mente e Curai - Atendimento Psicológico aqui em Petrolina PE. Meu objetivo é te ajudar com informações e agendamentos de forma rápida. É importante saber que eu sou um programa de computador e não um psicólogo. Não faço diagnósticos e não ofereço terapia.",
+          "bot",
+          ["Agendar Consulta", "Perguntas Frequentes", "Falar com um Humano"]
+        );
+      };
+    </script>
+  </body>
+</html>
